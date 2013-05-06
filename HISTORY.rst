@@ -1,3 +1,10 @@
+0.7a1 (2013/05/06)
+------------------
+
+* Reversion fixes for reversion 1.7
+* Requires django-cms >= 2.4.1
+* Requires django-photologue >= 2.5
+
 0.6.1 (2012/07/30)
 ------------------
 

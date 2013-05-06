@@ -1,7 +1,8 @@
 Introduction
 ------------
 
-This is a `Django CMS` plugin for news.
+This is a `Django CMS` plugin for news. To see an example, check out the Texas
+A&M University, `College of Architecture's Newsletter`.
 
 Installation
 ------------
@@ -23,6 +24,12 @@ Add ``newsy`` to the ``INSTALLED_APPS`` list in your project's
 .. _PIP: http://www.pip-installer.org/
 .. _setuptools: http://pypi.python.org/pypi/setuptools/
 .. _buildout: http://pypi.python.org/pypi/zc.buildout/
+.. _College of Architecture's Newsletter: http://one.arch.tamu.edu/
 
 What's Inside
 -------------
+
+A news item model that behaves similary to the Django CMS Page model. Content
+placeholders are read from the template selected for the news item and editors
+can then add plugins into the placeholders.
+

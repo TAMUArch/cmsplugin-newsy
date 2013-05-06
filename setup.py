@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 
 
-version = '0.6.1'
+version = '0.7a1'
 
 setup(
     name = 'cmsplugin-newsy',
@@ -21,15 +21,15 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "License :: OSI Approved :: Apache Software License"],
     keywords = 'django cms plugin photologue',
-    author = 'Benjamin Liles',
-    author_email = 'ben@ltwebdev.com',
-    url = 'https://github.com/benliles/cmsplugin-newsy',
+    author = 'Texas A&M University, College of Architecture',
+    author_email = 'webadmin@arch.tamu.edu',
+    url = 'https://github.com/TAMUArch/cmsplugin-newsy',
     packages = find_packages(),
     include_package_data = True,
     zip_safe = False,
     install_requires = [
         'setuptools',
-        'django-photologue>=2.3',
-        'django-cms>=2.1.0',
+        'django-photologue>=2.5',
+        'django-cms>=2.4.1',
         'django-tagging>=0.3.1']
 )

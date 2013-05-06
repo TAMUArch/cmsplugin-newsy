@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 
 
-version = '0.7a1'
+version = '0.7a2'
 
 setup(
     name = 'cmsplugin-newsy',
@@ -30,6 +30,6 @@ setup(
     install_requires = [
         'setuptools',
         'django-photologue>=2.5',
-        'django-cms>=2.4.1',
+        'django-cms',
         'django-tagging>=0.3.1']
 )

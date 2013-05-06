@@ -24,12 +24,11 @@ from newsy.forms import NewsItemAddForm, NewsItemForm
 from newsy.models import NewsItem, NewsItemThumbnail
 
 if 'reversion' in settings.INSTALLED_APPS:
-    import reversion
     from reversion.admin import VersionAdmin as ModelAdmin
-    create_on_success = reversion.revision.create_on_success
+    from reversion import create_revision
 else:
     ModelAdmin = admin.ModelAdmin
-    create_on_success = lambda x: x
+    create_revision = lambda: lambda x: x
 
 
 
@@ -64,11 +63,11 @@ def make_revision_with_plugins(obj, user=None, message=None):
     Only add to revision if it is a draft.
     """
     revision_manager = reversion.revision
-    
+
     cls = obj.__class__
-    
+
     if cls in revision_manager._registry:
-        
+
         placeholder_relation = 'newsitem'
 
         if revision_manager.is_active():
@@ -97,9 +96,9 @@ class NewsItemAdmin(ModelAdmin):
     search_fields = ('title', 'slug', 'short_title', 'page_title', 'description',)
     revision_form_template = "admin/newsy/newsitem/revision_form.html"
     recover_form_template = "admin/newsy/newsitem/recover_form.html"
-    
+
     prepopulated_fields = {"slug": ("title",)}
-    
+
     exclude = []
 
     add_fieldsets = [
@@ -130,7 +129,7 @@ class NewsItemAdmin(ModelAdmin):
             'classes': ('collapse',),
         }),
     ]
-    
+
     class Media:
         css = {
             'all': [os.path.join(settings.CMS_MEDIA_URL, path) for path in (
@@ -147,7 +146,7 @@ class NewsItemAdmin(ModelAdmin):
             'js/lib/ui.dialog.js',
 
         )]
-    
+
     def get_urls(self):
         """Get the admin urls
         """
@@ -180,11 +179,11 @@ class NewsItemAdmin(ModelAdmin):
 
         url_patterns = url_patterns + super(NewsItemAdmin, self).get_urls()
         return url_patterns
-    
+
     def redirect_jsi18n(self, request):
         return HttpResponseRedirect(reverse('admin:jsi18n'))
-    
-    @create_on_success
+
+    @create_revision()
     def change_template(self, request, object_id):
         page = get_object_or_404(NewsItem, pk=object_id)
         if page.has_change_permission(request):
@@ -199,12 +198,12 @@ class NewsItemAdmin(ModelAdmin):
                 return HttpResponseBadRequest("template not valid")
         else:
             return HttpResponseForbidden()
-    
+
     def get_formsets(self, request, obj=None):
         if obj:
             for inline in self.inline_instances:
                 yield inline.get_formset(request, obj)
-    
+
     def get_fieldsets(self, request, obj=None):
         """
         Add fieldsets of placeholders to the list of already existing
@@ -227,7 +226,7 @@ class NewsItemAdmin(ModelAdmin):
             given_fieldsets = deepcopy(self.add_fieldsets)
 
         return given_fieldsets
-    
+
     def get_form(self, request, obj=None, **kwargs):
         """
         Get NewsItemForm for the NewsItem model and modify its fields depending 
@@ -243,14 +242,14 @@ class NewsItemAdmin(ModelAdmin):
         else:
             self.inlines = []
             form = NewsItemAddForm
-        
+
         if obj:
             if settings.NEWSY_TEMPLATES:
                 selected_template = get_template_from_request(request, obj)
                 template_choices = list(settings.NEWSY_TEMPLATES)
                 form.base_fields['template'].choices = template_choices
                 form.base_fields['template'].initial = force_unicode(selected_template)
-            
+
             placeholders = get_placeholders(selected_template)
             for placeholder_name in placeholders:
                 plugin_list = []
@@ -303,12 +302,12 @@ class NewsItemAdmin(ModelAdmin):
                 form.base_fields[placeholder_name] = CharField(widget=widget, required=False)
         else:
             form.base_fields['template'].initial = settings.NEWSY_TEMPLATES[0][0]
-        
+
         return form
-    
+
     def _get_site_languages(self, obj):
         return settings.CMS_LANGUAGES
-    
+
     def change_view(self, request, object_id, extra_context=None):
         """
         The 'change' admin view for the NewsItem model.
@@ -323,10 +322,10 @@ class NewsItemAdmin(ModelAdmin):
         else:
             selected_template = get_template_from_request(request, obj)
             moderation_level, moderation_required = 0, False
-            
+
             # if there is a delete request for this page
             moderation_delete_request = False
-            
+
             #activate(user_lang_set)
             extra_context = {
                 'placeholders': get_placeholders(selected_template),
@@ -346,7 +345,7 @@ class NewsItemAdmin(ModelAdmin):
                 'language_tabs': self._get_site_languages(obj),
                 'show_language_tabs': False
             }
-        
+
         return super(NewsItemAdmin, self).change_view(request, object_id, extra_context)
 
 
@@ -360,7 +359,7 @@ class NewsItemAdmin(ModelAdmin):
             'filled_languages': [l for l in filled_languages if l in allowed_languages],
         })
         return super(NewsItemAdmin, self).render_change_form(request, context, add, change, form_url, obj)
-    
+
     def update_language_tab_context(self, request, obj, context=None):
         if not context:
             context = {}
@@ -390,7 +389,7 @@ class NewsItemAdmin(ModelAdmin):
         obj.version = version
 
         return super(NewsItemAdmin, self).render_revision_form(request, obj, version, context, revert, recover)
-    
+
     @transaction.commit_on_success
     def move_page(self, request, page_id, extra_context=None):
         """
@@ -415,10 +414,10 @@ class NewsItemAdmin(ModelAdmin):
 
         # move page
         page.move_page(target, position)
-        
+
         if "reversion" in settings.INSTALLED_APPS:
             make_revision_with_plugins(page)
-            
+
         return render_admin_menu_item(request, page)
 
     def get_permissions(self, request, page_id):
@@ -541,7 +540,7 @@ class NewsItemAdmin(ModelAdmin):
             path = '%s?edit-off' % referer.split('?')[0]
         return HttpResponseRedirect( path )
 
-    @create_on_success
+    @create_revision()
     def delete_translation(self, request, object_id, extra_context=None):
         raise Http404()
         language = get_language_from_request(request)
@@ -570,12 +569,12 @@ class NewsItemAdmin(ModelAdmin):
 
         titleobj = get_object_or_404(Title, page__id=object_id, language=language)
         plugins = CMSPlugin.objects.filter(placeholder__page__id=object_id, language=language)
-        
+
         deleted_objects, perms_needed = get_deleted_objects([titleobj], titleopts, request.user, self.admin_site)
         to_delete_plugins, perms_needed_plugins = get_deleted_objects(plugins, pluginopts, request.user, self.admin_site)
         deleted_objects.append(to_delete_plugins)
         perms_needed = set( list(perms_needed) + list(perms_needed_plugins) )
-        
+
 
         if request.method == 'POST':
             if perms_needed:
@@ -593,10 +592,10 @@ class NewsItemAdmin(ModelAdmin):
             public = obj.publisher_public
             if public:
                 public.save()
-                
+
             if "reversion" in settings.INSTALLED_APPS:
                 make_revision_with_plugins(obj)
-                
+
             if not self.has_change_permission(request, None):
                 return HttpResponseRedirect("../../../../")
             return HttpResponseRedirect("../../")
@@ -684,7 +683,7 @@ class NewsItemAdmin(ModelAdmin):
             return render_admin_menu_item(request, page)
         return HttpResponseForbidden(_("You do not have permission to change this page's in_navigation status"))
 
-    @create_on_success
+    @create_revision()
     def add_plugin(self, request):
         '''
         Could be either a page or a parent - if it's a parent we get the page via parent.
@@ -732,7 +731,7 @@ class NewsItemAdmin(ModelAdmin):
                 # do NOT allow non-page placeholders to use this method, they
                 # should use their respective admin!
                 raise Http404
-            
+
             if not page.has_change_permission(request):
                 # we raise a 404 instead of 403 for a slightly improved security
                 # and to be consistent with placeholder admin
@@ -747,17 +746,17 @@ class NewsItemAdmin(ModelAdmin):
             if parent:
                 plugin.parent = parent
             plugin.save()
-            
+
             if 'reversion' in settings.INSTALLED_APPS and page:
                 make_revision_with_plugins(page)
                 reversion.revision.user = request.user
                 plugin_name = unicode(plugin_pool.get_plugin(plugin_type).name)
                 reversion.revision.comment = unicode(_(u"%(plugin_name)s plugin added to %(placeholder)s") % {'plugin_name':plugin_name, 'placeholder':placeholder})
-                
+
             return HttpResponse(str(plugin.pk))
         raise Http404
 
-    @create_on_success
+    @create_revision()
     @transaction.commit_on_success
     def copy_plugins(self, request):
         if 'history' in request.path or 'recover' in request.path:
@@ -776,19 +775,19 @@ class NewsItemAdmin(ModelAdmin):
             if language == copy_from:
                 return HttpResponseBadRequest(_("Language must be different than the copied language!"))
             plugins = list(placeholder.cmsplugin_set.filter(language=copy_from).order_by('tree_id', '-rght'))
-            
+
             copy_plugins_to(plugins, placeholder, language)
-            
+
             if page and "reversion" in settings.INSTALLED_APPS:
                 make_revision_with_plugins(page)
                 reversion.revision.user = request.user
                 reversion.revision.comment = _(u"Copied %(language)s plugins to %(placeholder)s") % {'language':dict(settings.LANGUAGES)[language], 'placeholder':placeholder}
-                
+
             plugin_list = CMSPlugin.objects.filter(language=language, placeholder=placeholder, parent=None).order_by('position')
             return render_to_response('admin/cms/page/widgets/plugin_item.html', {'plugin_list':plugin_list}, RequestContext(request))
         raise Http404
 
-    @create_on_success
+    @create_revision()
     def edit_plugin(self, request, plugin_id):
         plugin_id = int(plugin_id)
         if not 'history' in request.path and not 'recover' in request.path:
@@ -857,7 +856,7 @@ class NewsItemAdmin(ModelAdmin):
             # just pass id to plugin_admin
             response = plugin_admin.change_view(request, str(plugin_id))
         if request.method == "POST" and plugin_admin.object_successfully_changed:
-            
+
             # if reversion is installed, save version of the page plugins
             if 'reversion' in settings.INSTALLED_APPS and page:
                 make_revision_with_plugins(page)    
@@ -882,7 +881,7 @@ class NewsItemAdmin(ModelAdmin):
 
         return response
 
-    @create_on_success
+    @create_revision()
     def move_plugin(self, request):
         if request.method == "POST" and not 'history' in request.path:
             pos = 0
@@ -918,17 +917,17 @@ class NewsItemAdmin(ModelAdmin):
                 success = True
             if not success:
                 HttpResponse(str("error"))
-                
+
             if page and 'reversion' in settings.INSTALLED_APPS:
                 make_revision_with_plugins(page)
                 reversion.revision.user = request.user
                 reversion.revision.comment = unicode(_(u"Plugins where moved"))
-                
+
             return HttpResponse(str("ok"))
         else:
             return HttpResponse(str("error"))
 
-    @create_on_success
+    @create_revision()
     def remove_plugin(self, request):
         if request.method == "POST" and not 'history' in request.path:
             plugin_id = request.POST['plugin_id']
@@ -950,12 +949,12 @@ class NewsItemAdmin(ModelAdmin):
 
             plugin_name = unicode(plugin_pool.get_plugin(plugin.plugin_type).name)
             comment = _(u"%(plugin_name)s plugin at position %(position)s in %(placeholder)s was deleted.") % {'plugin_name':plugin_name, 'position':plugin.position, 'placeholder':plugin.placeholder}
-            
+
             if page and 'reversion' in settings.INSTALLED_APPS:
                 make_revision_with_plugins(page)
                 reversion.revision.user = request.user
                 reversion.revision.comment = comment
-                
+
             return HttpResponse("%s,%s" % (plugin_id, comment))
         raise Http404
 
@@ -989,6 +988,6 @@ class NewsItemAdmin(ModelAdmin):
                 page_moderator.save()
                 return render_admin_menu_item(request, page)
         raise Http404
-    
-    
+
+
 admin.site.register(NewsItem, NewsItemAdmin)

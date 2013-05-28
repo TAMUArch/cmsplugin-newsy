@@ -102,6 +102,9 @@ class NewsItem(models.Model):
         return TaggedItem.objects.get_related(self,
                    NewsItem.site_objects.filter(published=True),
                    num=max)
+
+    def get_tags(self):
+        return Tag.objects.get_for_object(self)
     
     def get_next_published(self):
         if not self.publication_date or not self.published:

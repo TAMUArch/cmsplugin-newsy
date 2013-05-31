@@ -1,4 +1,5 @@
 from copy import deepcopy
+from logging import getLogger
 import os.path
 
 from django.conf import settings
@@ -12,13 +13,14 @@ from django.template.defaultfilters import title, escape, force_escape, escapejs
 from django.utils.encoding import force_unicode
 from django.utils.translation import ugettext_lazy as _
 
-from cms.admin.dialog.views import get_copy_dialog
 from cms.forms.widgets import PluginEditor
 from cms.models import Placeholder, CMSPlugin
 from cms.plugin_pool import plugin_pool
-from cms.utils import get_language_from_request
+from cms.templatetags.cms_admin import admin_static_url
+from cms.utils import cms_static_url
 from cms.utils.helpers import make_revision_with_plugins
-from cms.utils.plugins import get_placeholders
+from cms.utils.placeholder import get_placeholder_conf
+from cms.utils.plugins import get_placeholders, get_placeholders
 
 from newsy.forms import NewsItemAddForm, NewsItemForm
 from newsy.models import NewsItem, NewsItemThumbnail
@@ -31,6 +33,8 @@ else:
     create_revision = lambda: lambda x: x
 
 
+
+log = getLogger('newsy.admin')
 
 def get_template_from_request(request, obj=None, no_current_page=False):
     """
@@ -58,28 +62,6 @@ def get_item_from_placeholder_if_exists(placeholder):
     except (Page.DoesNotExist, MultipleObjectsReturned,):
         return None
 
-def make_revision_with_plugins(obj, user=None, message=None):
-    """
-    Only add to revision if it is a draft.
-    """
-    revision_manager = reversion.revision
-
-    cls = obj.__class__
-
-    if cls in revision_manager._registry:
-
-        placeholder_relation = 'newsitem'
-
-        if revision_manager.is_active():
-            # add toplevel object to the revision
-            revision_manager.add(obj)
-            # add plugins and subclasses to the revision
-            filters = {'placeholder__%s' % placeholder_relation: obj}
-            for plugin in CMSPlugin.objects.filter(**filters):
-                plugin_instance, admin = plugin.get_plugin_instance()
-                if plugin_instance:
-                    revision_manager.add(plugin_instance)
-                revision_manager.add(plugin)
 
 class NewsItemThumbnailAdmin(admin.TabularInline):
     model = NewsItemThumbnail
@@ -132,18 +114,18 @@ class NewsItemAdmin(ModelAdmin):
 
     class Media:
         css = {
-            'all': [os.path.join(settings.CMS_MEDIA_URL, path) for path in (
+            'all': [cms_static_url(path) for path in (
                 'css/rte.css',
                 'css/pages.css',
                 'css/change_form.css',
                 'css/jquery.dialog.css',
             )]
         }
-        js = [os.path.join(settings.CMS_MEDIA_URL, path) for path in (
-            'js/lib/jquery.js',
+        js = ['%sjs/jquery.min.js' % admin_static_url()] + [cms_static_url(path) for path in (
+            'js/plugins/admincompat.js',
             'js/lib/jquery.query.js',
-            'js/lib/ui.core.js',
-            'js/lib/ui.dialog.js',
+            'js/lib/jquery.ui.core.js',
+            'js/lib/jquery.ui.dialog.js',
 
         )]
 
@@ -160,28 +142,24 @@ class NewsItemAdmin(ModelAdmin):
             pat(r'edit-plugin/([0-9]+)/$', self.edit_plugin),
             pat(r'remove-plugin/$', self.remove_plugin),
             pat(r'move-plugin/$', self.move_plugin),
-            pat(r'^([0-9]+)/delete-translation/$', self.delete_translation),
-            pat(r'^([0-9]+)/move-page/$', self.move_page),
-            pat(r'^([0-9]+)/copy-page/$', self.copy_page),
-            pat(r'^([0-9]+)/change-status/$', self.change_status),
-            pat(r'^([0-9]+)/change-navigation/$', self.change_innavigation),
-            pat(r'^([0-9]+)/jsi18n/$', self.redirect_jsi18n),
-            pat(r'^([0-9]+)/permissions/$', self.get_permissions),
-            pat(r'^([0-9]+)/moderation-states/$', self.get_moderation_states),
-            pat(r'^([0-9]+)/change-moderation/$', self.change_moderation),
-            pat(r'^([0-9]+)/approve/$', self.approve_page), # approve page
-            pat(r'^([0-9]+)/publish/$', self.publish_page), # publish page
-            pat(r'^([0-9]+)/remove-delete-state/$', self.remove_delete_state),
-            pat(r'^([0-9]+)/dialog/copy/$', get_copy_dialog), # copy dialog
-            pat(r'^([0-9]+)/preview/$', self.preview_page), # copy dialog
-            pat(r'^(?P<object_id>\d+)/change_template/$', self.change_template), # copy dialog
+            #pat(r'^([0-9]+)/dialog/copy/$', get_copy_dialog),
+            pat(r'^([0-9]+)/preview/$', self.preview_item),
+            pat(r'^(?P<object_id>\d+)/change_template/$', self.change_template),
         )
 
         url_patterns = url_patterns + super(NewsItemAdmin, self).get_urls()
         return url_patterns
-
-    def redirect_jsi18n(self, request):
-        return HttpResponseRedirect(reverse('admin:jsi18n'))
+    
+    def get_revision_instances(self, request, object):
+        """ Return all the instances to be used in the object's revision """
+        data = [object]
+        filters = {'placeholder__newsitem': object }
+        for plugin in CMSPlugin.objects.filter(**filters):
+            data.append(plugin)
+            plugin_instance, admin = plugin.get_plugin_instance()
+            if plugin_instance:
+                data.append(plugin_instance)
+        return data
 
     @create_revision()
     def change_template(self, request, object_id):
@@ -198,34 +176,35 @@ class NewsItemAdmin(ModelAdmin):
                 return HttpResponseBadRequest("template not valid")
         else:
             return HttpResponseForbidden()
-
+    
+    """
     def get_formsets(self, request, obj=None):
         if obj:
             for inline in self.inline_instances:
                 yield inline.get_formset(request, obj)
+    """
 
     def get_fieldsets(self, request, obj=None):
         """
         Add fieldsets of placeholders to the list of already existing
         fieldsets.
         """
-        placeholders_template = get_template_from_request(request, obj)
 
         if obj: # edit
-            given_fieldsets = deepcopy(self.fieldsets)
-            for placeholder_name in sorted(get_placeholders(placeholders_template)):
-                name = settings.CMS_PLACEHOLDER_CONF.get("%s %s" % (obj.template, placeholder_name), {}).get("name", None)
-                if not name:
-                    name = settings.CMS_PLACEHOLDER_CONF.get(placeholder_name, {}).get("name", None)
-                if not name:
-                    name = placeholder_name
-                else:
-                    name = _(name)
-                given_fieldsets += [(title(name), {'fields':[placeholder_name], 'classes':['plugin-holder']})]
-        else: # new page
-            given_fieldsets = deepcopy(self.add_fieldsets)
+            fieldsets = deepcopy(self.fieldsets)
+            placeholders = get_placeholders(
+                    get_template_from_request(request, obj))
 
-        return given_fieldsets
+            for placeholder in placeholders:
+                name = get_placeholder_conf("name", placeholder, obj.template,
+                        placeholder)
+                name = _(name)
+                fieldsets.append((title(name), {'fields': [placeholder],
+                    'classes': ['plugin-holder']}))
+        else: # new page
+            fieldsets = deepcopy(self.add_fieldsets)
+
+        return fieldsets
 
     def get_form(self, request, obj=None, **kwargs):
         """
@@ -239,74 +218,80 @@ class NewsItemAdmin(ModelAdmin):
             if "history" in request.path or 'recover' in request.path:
                 versioned = True
                 version_id = request.path.split("/")[-2]
-        else:
-            self.inlines = []
-            form = NewsItemAddForm
-
-        if obj:
             if settings.NEWSY_TEMPLATES:
                 selected_template = get_template_from_request(request, obj)
                 template_choices = list(settings.NEWSY_TEMPLATES)
                 form.base_fields['template'].choices = template_choices
                 form.base_fields['template'].initial = force_unicode(selected_template)
 
-            placeholders = get_placeholders(selected_template)
-            for placeholder_name in placeholders:
-                plugin_list = []
-                show_copy = False
-                if versioned:
-                    from reversion.models import Version
-                    version = get_object_or_404(Version, pk=version_id)
-                    installed_plugins = plugin_pool.get_all_plugins()
-                    plugin_list = []
-                    plugins = []
-                    bases = {}
-                    revs = []
-                    for related_version in version.revision.version_set.all():
-                        try:
-                            rev = related_version.object_version
-                        except models.FieldDoesNotExist:
-                            # in case the model has changed in the meantime
+            placeholder_names = get_placeholders(selected_template)
+            placeholders = {}
+
+            if versioned:
+                # Load versioned plugins/placeholders
+                from reversion.models import Version
+
+                # Get the revision for the version id
+                revision = get_object_or_404(Version, pk=version_id).revision
+
+                plugins = []
+                base_plugins = {}
+                for version in revision.version_set.all():
+                    try:
+                        version = version.object_version.object
+                        # Add base plugin to base plugins list
+                        if version.__class__ == CMSPlugin:
+                            base_plugins[version.pk] = version
                             continue
-                        else:
-                            revs.append(rev)
-                    for rev in revs:
-                        pobj = rev.object
-                        if pobj.__class__ == CMSPlugin:
-                            if pobj.placeholder.slot == placeholder_name and \
-                                not pobj.parent_id:
-                                placeholder = pobj.placeholder
-                                if pobj.get_plugin_class() == CMSPlugin:
-                                    plugin_list.append(pobj)
-                                else:
-                                    bases[int(pobj.pk)] = pobj
-                        if hasattr(pobj, "cmsplugin_ptr_id"):
-                            plugins.append(pobj)
-                    for plugin in plugins:
-                        if int(plugin.cmsplugin_ptr_id) in bases:
-                            bases[int(plugin.cmsplugin_ptr_id)].placeholder = placeholder
-                            bases[int(plugin.cmsplugin_ptr_id)].set_base_attr(plugin)
-                            plugin_list.append(plugin)
-                else:
-                    placeholder, created = obj.placeholders.get_or_create(slot=placeholder_name)
-                    installed_plugins = plugin_pool.get_all_plugins(placeholder_name, obj)
-                    plugin_list = CMSPlugin.objects.filter(placeholder=placeholder, parent=None).order_by('position')
+                        # Add plugin to plugins list
+                        if isinstance(version, CMSPlugin):
+                            plugins.append(version)
+                    except models.FieldDoesNotExist:
+                        # Model has changed since version was made
+                        log.warning('Model has changed since version was made')
+                        continue
+
+                for plugin in plugins:
+                    if plugin.pk in base_plugins:
+                        plugin.placeholder = base_plugins[plugin.pk].placeholder
+                        if base_plugins[plugin.pk].parent is None:
+                            log.debug('Appending %s to %s' % (plugin,
+                                plugin.placeholder.slot))
+                            placeholders.setdefault(plugin.placeholder.slot,
+                                    []).append(plugin)
+            else:
+               for plugin in CMSPlugin.objects.filter(
+                       placeholder__slot__in=placeholder_names,
+                       parent=None).order_by('position'):
+                   placeholders.setdefault(plugin.placeholder.slot,
+                           []).append(plugin)
+
+
+            for placeholder_name in placeholder_names:
+                placeholder, created = obj.placeholders.get_or_create(
+                        slot=placeholder_name)
+                installed_plugins = plugin_pool.get_all_plugins(
+                        placeholder_name, obj)
+
                 widget = PluginEditor(attrs={
                     'installed': installed_plugins,
-                    'list': plugin_list,
+                    'list': placeholders.get(placeholder_name, []),
                     'copy_languages': [],
-                    'show_copy':show_copy,
-                    'language': '',
+                    'show_copy': False,
+                    'language': 'en',
                     'placeholder': placeholder
                 })
+
                 form.base_fields[placeholder_name] = CharField(widget=widget, required=False)
         else:
+            self.inlines = []
+            form = NewsItemAddForm
             form.base_fields['template'].initial = settings.NEWSY_TEMPLATES[0][0]
 
         return form
 
     def _get_site_languages(self, obj):
-        return settings.CMS_LANGUAGES
+        return [('en', 'English')]
 
     def change_view(self, request, object_id, extra_context=None):
         """
@@ -331,7 +316,6 @@ class NewsItemAdmin(ModelAdmin):
                 'placeholders': get_placeholders(selected_template),
                 'page': obj,
                 'CMS_PERMISSION': settings.CMS_PERMISSION,
-                'CMS_MODERATOR': settings.CMS_MODERATOR,
                 'ADMIN_MEDIA_URL': settings.ADMIN_MEDIA_PREFIX,
                 'has_change_permissions_permission': True,
                 'has_moderate_permission': True,
@@ -341,8 +325,8 @@ class NewsItemAdmin(ModelAdmin):
                 'moderation_delete_request': moderation_delete_request,
                 'show_delete_translation': False,
                 'current_site_id': settings.SITE_ID,
-                'language': get_language_from_request(request, obj),
-                'language_tabs': self._get_site_languages(obj),
+                'language': 'en',
+                'language_tabs': [],
                 'show_language_tabs': False
             }
 
@@ -630,7 +614,7 @@ class NewsItemAdmin(ModelAdmin):
         page.save()
         return HttpResponseRedirect("../../%d/" % page.id)
 
-    def preview_page(self, request, object_id):
+    def preview_item(self, request, object_id):
         """Redirecting preview function based on draft_id
         """
         raise Http404()

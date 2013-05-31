@@ -3,7 +3,7 @@ from logging import getLogger
 
 from django import template
 
-from cms.templatetags.cms_tags import Placeholder, PluginsMedia
+from cms.templatetags.cms_tags import Placeholder
 
 from newsy.placeholders import render_newsy_placeholder
 
@@ -62,24 +62,5 @@ class NewsyPlaceholder(Placeholder):
             return nodelist.render(context)
         return content
 
-class NewsyPluginsMedia(PluginsMedia):
-    name = 'newsy_plugins_media'
-    
-    def render_tag(self, context, page_lookup):
-        log.debug('NewsyPluginsMedia.render_tag')
-        if not 'request' in context:
-            return ''
-        request = context['request']
-        from cms.plugins.utils import get_plugins_media
-        page = context.get('current_page', 'dummy')
-        if page == "dummy":
-            return ''
-        # make sure the plugin cache is filled
-        plugins_media = get_plugins_media(request, context, page)
-        
-        if plugins_media:
-            return plugins_media.render()
-        else:
-            return u''
 
 register.tag(NewsyPlaceholder)

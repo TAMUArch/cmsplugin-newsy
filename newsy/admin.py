@@ -22,7 +22,6 @@ from cms.plugin_pool import plugin_pool
 from cms.templatetags.cms_admin import admin_static_url
 from cms.utils import cms_static_url
 from cms.utils.conf import get_cms_setting
-from cms.utils.helpers import make_revision_with_plugins
 from cms.utils.placeholder import get_placeholder_conf
 from cms.utils.plugins import get_placeholders, get_placeholders
 
@@ -31,9 +30,10 @@ from newsy.models import NewsItem, NewsItemThumbnail
 
 if 'reversion' in settings.INSTALLED_APPS:
     _REVERSION = True
-    from reversion import create_revision, set_user, set_comment
+    from reversion import create_revision
     from reversion.admin import VersionAdmin as ModelAdmin
     from reversion.models import Version
+    from newsy.versioning import make_revision_with_plugins
 else:
     _REVERSION = False
     ModelAdmin = admin.ModelAdmin
@@ -87,6 +87,8 @@ class NewsItemAdmin(ModelAdmin):
     search_fields = ('title', 'slug', 'short_title', 'page_title', 'description',)
     revision_form_template = "admin/newsy/newsitem/revision_form.html"
     recover_form_template = "admin/newsy/newsitem/recover_form.html"
+    history_latest_first = True
+    ignore_duplicate_revisions = True
 
     prepopulated_fields = {"slug": ("title",)}
 
@@ -249,12 +251,16 @@ class NewsItemAdmin(ModelAdmin):
                 for version in revision.version_set.all():
                     try:
                         version = version.object_version.object
+                        log.debug('%s loaded from revision' %
+                                (unicode(version),))
                         # Add base plugin to base plugins list
                         if version.__class__ == CMSPlugin:
+                            log.debug('CMSPlugin found')
                             base_plugins[version.pk] = version
                             continue
                         # Add plugin to plugins list
                         if isinstance(version, CMSPlugin):
+                            log.debug('CMSPlugin implementation found')
                             plugins.append(version)
                     except models.FieldDoesNotExist:
                         # Model has changed since version was made
@@ -262,8 +268,12 @@ class NewsItemAdmin(ModelAdmin):
                         continue
 
                 for plugin in plugins:
+                    log.debug('Finding base plugin for %s' %
+                            (unicode(plugin),))
                     if plugin.pk in base_plugins:
+                        log.debug('Base plugin found')
                         plugin.placeholder = base_plugins[plugin.pk].placeholder
+                        plugin.plugin_type = base_plugins[plugin.pk].plugin_type
                         if base_plugins[plugin.pk].parent is None:
                             log.debug('Appending %s to %s' % (plugin,
                                 plugin.placeholder.slot))
@@ -282,8 +292,12 @@ class NewsItemAdmin(ModelAdmin):
             for placeholder_name in placeholder_names:
                 installed_plugins = plugin_pool.get_all_plugins(
                         placeholder_name, obj)
+                log.debug('installed_plugins: %s' %
+                        (unicode(installed_plugins),))
 
                 placeholder = placeholders.get(placeholder_name, {})
+                log.debug('%s plugins: %s' % (placeholder_name,
+                    placeholder.get('plugins',[]),))
                 if placeholder and 'object' in placeholder:
                     widget = PluginEditor(attrs={
                         'installed': installed_plugins,
@@ -367,11 +381,11 @@ class NewsItemAdmin(ModelAdmin):
                     placeholder=placeholder, position=CMSPlugin.objects.filter(
                         placeholder=placeholder).count())
             plugin.save()
-            if 'reversion' in settings.INSTALLED_APPS:
-                set_user(request.user)
-                set_comment(u'%(plugin_name)s plugin added to %(placeholder)s'
-                        % {'plugin_name':
-                            plugin_pool.get_plugin(plugin_type).name,
+            if _REVERSION:
+                make_revision_with_plugins(item, request.user,
+                        '%(plugin_name)s plugin added to %(placeholder)s' % {
+                            'plugin_name':
+                                unicode(plugin_pool.get_plugin(plugin_type).name),
                             'placeholder': placeholder.slot})
         elif parent_id:
             parent = CMSPlugin.objects.select_related('placeholder').get(
@@ -383,12 +397,12 @@ class NewsItemAdmin(ModelAdmin):
                     placeholder=parent.placeholder, parent=parent,
                     position=CMSPlugin.objects.filter(parent=parent).count())
             plugin.save()
-            if 'reversion' in settings.INSTALLED_APPS:
-                set_user(request.user)
-                set_comment(u'%(plugin_name)s plugin added to plugin '
+            if _REVERSION:
+                make_revision_with_plugins(item, request.user,
+                        '%(plugin_name)s plugin added to plugin '
                         '%(plugin)s in %(placeholder)s' % {
                             'plugin_name':
-                            plugin_pool.get_plugin(plugin_type).name,
+                                unicode(plugin_pool.get_plugin(plugin_type).name),
                             'placeholder': parent.placeholder.slot,
                             'plugin': unicode(parent)})
         else:
@@ -479,12 +493,14 @@ class NewsItemAdmin(ModelAdmin):
         if request.method == "POST" and plugin_admin.object_successfully_changed:
             # if reversion is installed, save version of the page plugins
             if _REVERSION and item:
-                set_user(request.user)
-                set_comment(_(u"%(plugin_name)s plugin edited at position "
-                    "%(position)s in %(placeholder)s" % {
-                        'plugin_name': plugin_pool.get_plugin(plugin.plugin_type).name,
-                        'position': plugin.position,
-                        'placeholder': plugin.placeholder.slot}))
+                make_revision_with_plugins(item, request.user,
+                        "%(plugin_name)s plugin edited at position "
+                        "%(position)s in %(placeholder)s" % {
+                            'plugin_name': 
+                                unicode(plugin_pool.get_plugin(
+                                    plugin.plugin_type).name),
+                            'position': plugin.position,
+                            'placeholder': plugin.placeholder.slot})
 
             # read the saved object from plugin_admin - ugly but works
             saved_object = plugin_admin.saved_object
@@ -549,8 +565,8 @@ class NewsItemAdmin(ModelAdmin):
                     plugin.save()
 
         if item and _REVERSION:
-            set_user(request.user)
-            set_comment(_(u"Plugins where moved"))
+            make_revision_with_plugins(item, request.user,
+                "Plugins where moved")
 
         return HttpResponse(str("ok"))
 
@@ -573,14 +589,13 @@ class NewsItemAdmin(ModelAdmin):
         plugin.delete()
         comment = "%(plugin_name)s plugin at position %(position)s in " \
                 "%(placeholder)s was deleted." % {
-                    'plugin_name': plugin_pool.get_plugin(
-                        plugin.plugin_type).name,
+                    'plugin_name': unicode(plugin_pool.get_plugin(
+                        plugin.plugin_type).name),
                     'position': plugin.position,
                     'placeholder': plugin.placeholder}
 
         if _REVERSION:
-            set_user(request.user)
-            set_comment(comment)
+            make_revision_with_plugins(item, request.user, comment)
 
         return HttpResponse("%s,%s" % (plugin_id, comment),
                 content_type='text/plain')

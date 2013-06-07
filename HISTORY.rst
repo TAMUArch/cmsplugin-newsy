@@ -1,3 +1,10 @@
+0.7b1 (2013/06/07)
+------------------
+
+* Cleaning and upgrading of the Admin integration
+* Reversion now saves plugins with revisions properly
+* Removed remaining multi-lingual code as it was not supported or working
+
 0.7a1 (2013/05/06)
 ------------------
 

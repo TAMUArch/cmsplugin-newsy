@@ -1,11 +1,7 @@
 # -*- coding: utf-8 -*-
 from logging import getLogger
+import warnings
 
-from cms.exceptions import DuplicatePlaceholderWarning
-from cms.models import Page
-from cms.plugin_rendering import render_plugins
-from cms.plugins.utils import get_plugins
-from cms.templatetags.cms_tags import Placeholder
 from django.contrib.sites.models import Site
 from django.conf import settings
 from django.shortcuts import get_object_or_404
@@ -14,7 +10,12 @@ from django.template import NodeList, TextNode, VariableNode, \
 from django.template.loader import get_template
 from django.template.loader_tags import ConstantIncludeNode, ExtendsNode, \
     BlockNode
-import warnings
+from cms.exceptions import DuplicatePlaceholderWarning
+from cms.models import Page
+from cms.plugin_rendering import render_plugins
+from cms.plugins.utils import get_plugins
+from cms.templatetags.cms_tags import Placeholder
+from cms.utils import get_cms_setting
 
 from newsy.models import NewsItem
 
@@ -52,15 +53,15 @@ def render_newsy_placeholder(placeholder, context, name_fallback="Placeholder"):
     slot = getattr(placeholder, 'slot', None)
     extra_context = {}
     if slot:
-        extra_context = settings.CMS_PLACEHOLDER_CONF.get("%s %s" % (template, slot), {}).get("extra_context", None)
+        extra_context = get_cms_setting('PLACEHOLDER_CONF').get("%s %s" % (template, slot), {}).get("extra_context", None)
         if not extra_context:
-            extra_context = settings.CMS_PLACEHOLDER_CONF.get(slot, {}).get("extra_context", {})
+            extra_context = get_cms_setting('PLACEHOLDER_CONF').get(slot, {}).get("extra_context", {})
     for key, value in extra_context.items():
         if not key in context:
             context[key] = value
 
     c = []
-    
+
     processors = None 
     c.extend(render_plugins(plugins, context, placeholder, processors))
     content = "".join(c)

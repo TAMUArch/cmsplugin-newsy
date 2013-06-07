@@ -1,6 +1,7 @@
 from copy import deepcopy
 from logging import getLogger
 import os.path
+import re
 
 from django.conf import settings
 from django.contrib import admin
@@ -319,7 +320,7 @@ class NewsItemAdmin(ModelAdmin):
     def _get_site_languages(self, obj):
         return [('en', 'English')]
 
-    def change_view(self, request, object_id, extra_context=None):
+    def change_view(self, request, object_id, form_url='', extra_context=None):
         """
         The 'change' admin view for the NewsItem model.
         """
@@ -337,10 +338,11 @@ class NewsItemAdmin(ModelAdmin):
                 'page': obj,
                 'ADMIN_MEDIA_URL': settings.ADMIN_MEDIA_PREFIX,
                 'current_site_id': settings.SITE_ID,
-                'language': 'en',
+                'language': 'en'
             }
 
-        return super(NewsItemAdmin, self).change_view(request, object_id, extra_context)
+        return super(NewsItemAdmin, self).change_view(request, object_id,
+                form_url=form_url, extra_context=extra_context)
 
     def revision_view(self, request, object_id, version_id, extra_context=None):
         if not self.has_change_permission(request, NewsItem.objects.get(pk=object_id)):
@@ -354,6 +356,7 @@ class NewsItemAdmin(ModelAdmin):
         return super(NewsItemAdmin, self).history_view(request, object_id, extra_context)
 
     def render_revision_form(self, request, obj, version, context, revert=False, recover=False):
+        #TODO: Need to fix here!
         obj.version = version
 
         return super(NewsItemAdmin, self).render_revision_form(request, obj, version, context, revert, recover)
@@ -427,39 +430,46 @@ class NewsItemAdmin(ModelAdmin):
 
             plugin_instance, plugin_admin = plugin.get_plugin_instance(self.admin_site)
         else:
-            raise Exception('NEEDS WORK')
-            """
             # history view with reversion
-            pre_edit = request.path.split("/edit-plugin/")[0]
-            version_id = pre_edit.split("/")[-1]
-            Version.objects.get(pk=version_id)
-            version = get_object_or_404(Version, pk=version_id)
-            rev_objs = []
-            for related_version in version.revision.version_set.all():
-                try:
-                    rev = related_version.object_version
-                except models.FieldDoesNotExist:
-                    continue
-                else:
-                    rev_objs.append(rev.object)
-            # TODO: check permissions
-
-            for obj in rev_objs:
-                if obj.__class__ == CMSPlugin and obj.pk == plugin_id:
-                    cms_plugin = obj
-                    break
-            inst, plugin_admin = cms_plugin.get_plugin_instance(self.admin_site)
+            match = re.search(r'/(?P<version_id>\d+)/edit-plugin/\d+',
+                    request.path)
+            if not match:
+                return HttpResponseBadRequest(
+                    'Version id missing from history')
+            version = get_object_or_404(Version, pk=match.group('version_id'))
+            plugin = None
             instance = None
-            if cms_plugin.get_plugin_class().model == CMSPlugin:
-                instance = cms_plugin
-            else:
-                for obj in rev_objs:
-                    if hasattr(obj, "cmsplugin_ptr_id") and int(obj.cmsplugin_ptr_id) == int(cms_plugin.pk):
-                        instance = obj
-                        break
-            if not instance:
-                raise Http404("This plugin is not saved in a revision")
-            """
+            for version in version.revision.version_set.all():
+                try:
+                    version = version.object_version.object
+                    log.debug('%s loaded from revision' %
+                            (unicode(version),))
+                    # Check if base_plugin
+                    if version.__class__ == CMSPlugin and version.pk == plugin_id:
+                        log.debug('CMSPlugin found')
+                        plugin = version
+                        continue
+                    # Check if plugin
+                    if isinstance(version, CMSPlugin) and version.pk == plugin_id:
+                        log.debug('CMSPlugin implementation found')
+                        instance = version
+                except models.FieldDoesNotExist:
+                    # Model has changed since version was made
+                    log.warning('Model has changed since version was made')
+                    continue
+                if plugin is not None and instance is not None:
+                    break
+
+            if not plugin:
+                log.error("Unable to find the base plugin")
+                raise Http404('This plugin is not saved in a revision')
+
+            inst, plugin_admin = plugin.get_plugin_instance(self.admin_site)
+
+            if plugin.get_plugin_class().model == CMSPlugin:
+                instance = plugin
+            elif instance is None:
+                raise Http404('This plugin is not saved in a revision')
 
         plugin_admin.cms_plugin_instance = plugin
         try:

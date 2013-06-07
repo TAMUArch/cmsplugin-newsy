@@ -1,3 +1,8 @@
+0.7b2 (2013/06/07)
+------------------
+
+* Bugfix: getting placeholder configuration for new CMS
+
 0.7b1 (2013/06/07)
 ------------------
 

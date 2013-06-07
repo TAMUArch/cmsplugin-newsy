@@ -4,7 +4,7 @@ from setuptools import setup, find_packages
 
 
 
-version = '0.7b1'
+version = '0.7b2'
 
 setup(
     name = 'cmsplugin-newsy',

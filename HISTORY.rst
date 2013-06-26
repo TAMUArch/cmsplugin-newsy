@@ -1,3 +1,8 @@
+0.7b3 (2013/06/25)
+------------------
+
+* Added a monkeypatch for permissions checking on CMS Placeholders
+
 0.7b2 (2013/06/07)
 ------------------
 

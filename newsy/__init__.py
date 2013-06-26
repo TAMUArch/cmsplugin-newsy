@@ -11,4 +11,7 @@ except ImportError:
 getLogger('newsy').addHandler(NullHandler())
 
 import newsy.signals
+import newsy.monkeypatch
+
+newsy.monkeypatch.install()
 

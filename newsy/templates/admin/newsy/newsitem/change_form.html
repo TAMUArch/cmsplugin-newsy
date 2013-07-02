@@ -4,13 +4,13 @@
 
 {% block extrahead %}
 {{ block.super }}
-<script type="text/javascript" src="{{ STATIC_URL}}cms/js/csrf.js"></script>
-<script type="text/javascript" src="{% url 'admin:jsi18n' %}"></script>
+<script type="text/javascript" src="{{ STATIC_URL}}cms/js/csrf.js?version=0.7b4"></script>
+<script type="text/javascript" src="{% url 'admin:jsi18n' %}?version=0.7b4"></script>
 
 {% if not add %}
-<script type="text/javascript" src="{{ STATIC_URL }}cms/js/change_form.js"></script>
+<script type="text/javascript" src="{{ STATIC_URL }}cms/js/change_form.js?version=0.7b4"></script>
 {% endif %}
-<script type="text/javascript" src="{% admin_static_url %}js/urlify.js"></script>
+<script type="text/javascript" src="{% admin_static_url %}js/urlify.js?version=0.7b4"></script>
 
 {% if add %}
 <script type="text/javascript">

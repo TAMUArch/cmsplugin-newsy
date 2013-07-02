@@ -376,6 +376,17 @@ class NewsItemAdmin(ModelAdmin):
         parent_id = request.POST.get('parent_id', None)
 
         if placeholder_id:
+            try:
+                placeholder_id = int(placeholder_id)
+            except ValueError:
+                placeholder_id = None
+        if parent_id:
+            try:
+                parent_id = int(parent_id)
+            except ValueError:
+                parent_id = None
+
+        if placeholder_id:
             placeholder = get_object_or_404(Placeholder, pk=placeholder_id)
             item = NewsItem.objects.get(placeholders=placeholder)
             if not item.has_change_permission(request):

@@ -1,3 +1,10 @@
+0.7b4 (2013/07/02)
+------------------
+
+* Adding plugin admin view doesn't generate 500 errors when a placeholder_id 
+  isn't valid
+* Added version numbers to javascript in template to help with caching issues
+
 0.7b3 (2013/06/25)
 ------------------
 

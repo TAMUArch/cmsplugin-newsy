@@ -127,17 +127,17 @@ class NewsItemAdmin(ModelAdmin):
     class Media:
         css = {
             'all': [cms_static_url(path) for path in (
-                'css/rte.css?version=0.7b4',
-                'css/pages.css?version=0.7b4',
-                'css/change_form.css?version=0.7b4',
-                'css/jquery.dialog.css?version=0.7b4',
+                'css/rte.css',
+                'css/pages.css',
+                'css/change_form.css',
+                'css/jquery.dialog.css',
             )]
         }
-        js = ['%sjs/jquery.min.js?version=1.4.2' % admin_static_url()] + [cms_static_url(path) for path in (
-            'js/plugins/admincompat.js?version=0.7b4',
-            'js/libs/jquery.query.js?version=2.0.1',
-            'js/libs/jquery.ui.core.js?version=1.7.1',
-            'js/libs/jquery.ui.dialog.js?version=1.7.1',
+        js = ['%sjs/jquery.min.js' % admin_static_url()] + [cms_static_url(path) for path in (
+            'js/plugins/admincompat.js',
+            'js/libs/jquery.query.js',
+            'js/libs/jquery.ui.core.js',
+            'js/libs/jquery.ui.dialog.js',
 
         )]
 

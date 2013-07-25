@@ -78,13 +78,13 @@ def item_view(request, year, month, day, slug):
                                     publication_date__month=month,
                                     publication_date__day=day,
                                     slug=slug)
-    except NewsItem.MultipleObjectsReturned:
+    except NewsItem.MultipleObjectsReturned as e:
         raise Http404()
-    except NewsItem.DoesNotExist:
+    except NewsItem.DoesNotExist as e:
         try:
             page = NewsItem.objects.get(slug=slug)
             return HttpResponseRedirect(page.get_absolute_url())
-        except NewsItem.DoesNotExist, NewsItem.MultipleObjectsReturned:
+        except (NewsItem.DoesNotExist, NewsItem.MultipleObjectsReturned,) as e:
             raise Http404()
 
     context = RequestContext(request)

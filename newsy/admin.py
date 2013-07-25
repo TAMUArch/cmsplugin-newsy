@@ -311,9 +311,9 @@ class NewsItemAdmin(ModelAdmin):
 
                     form.base_fields[placeholder_name] = CharField(widget=widget, required=False)
         else:
-            self.inlines = []
             form = NewsItemAddForm
             form.base_fields['template'].initial = settings.NEWSY_TEMPLATES[0][0]
+        log.error('Form received: %s' % (repr(form),))
 
         return form
 

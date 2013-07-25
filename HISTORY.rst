@@ -1,3 +1,9 @@
+0.7b5 (2013/07/25)
+------------------
+
+* Bugfix for admin view of news item with thumbnail inline
+* Bugfix for 404's on news item view
+
 0.7b4 (2013/07/02)
 ------------------
 

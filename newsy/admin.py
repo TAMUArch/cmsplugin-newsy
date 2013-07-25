@@ -313,7 +313,6 @@ class NewsItemAdmin(ModelAdmin):
         else:
             form = NewsItemAddForm
             form.base_fields['template'].initial = settings.NEWSY_TEMPLATES[0][0]
-        log.error('Form received: %s' % (repr(form),))
 
         return form
 

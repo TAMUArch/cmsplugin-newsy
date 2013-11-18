@@ -17,7 +17,7 @@ from django.utils.translation import ugettext_lazy as _
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 
-from cms.forms.widgets import PluginEditor
+#from cms.forms.widgets import PluginEditor
 from cms.models import Placeholder, CMSPlugin
 from cms.plugin_pool import plugin_pool
 from cms.templatetags.cms_admin import admin_static_url
@@ -299,6 +299,7 @@ class NewsItemAdmin(ModelAdmin):
                 placeholder = placeholders.get(placeholder_name, {})
                 log.debug('%s plugins: %s' % (placeholder_name,
                     placeholder.get('plugins',[]),))
+                '''
                 if placeholder and 'object' in placeholder:
                     widget = PluginEditor(attrs={
                         'installed': installed_plugins,
@@ -310,6 +311,7 @@ class NewsItemAdmin(ModelAdmin):
                     })
 
                     form.base_fields[placeholder_name] = CharField(widget=widget, required=False)
+                '''
         else:
             form = NewsItemAddForm
             form.base_fields['template'].initial = settings.NEWSY_TEMPLATES[0][0]

@@ -2,6 +2,7 @@ from datetime import date
 from logging import getLogger
 
 from django.conf import settings
+from django.core.validators import RegexValidator
 from django.contrib.sites.models import Site
 from django.contrib.sites.managers import CurrentSiteManager
 from django.db import models
@@ -58,6 +59,8 @@ class NewsItem(models.Model):
     published = models.BooleanField(_('published'), default=False, db_index=True)
     sites = models.ManyToManyField(Site)
     placeholders = models.ManyToManyField(Placeholder, editable=False)
+    external_ling = models.CharField(max_length=255, blank=True, null=True,
+                                     validators=[RegexValidator(r'^(http|https)://')])
     tags = TagField()
     
     moderator_state = 0

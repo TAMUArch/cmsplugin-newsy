@@ -119,7 +119,7 @@ class NewsItemAdmin(ModelAdmin):
             'classes': ('collapse',),
         }),
         (_('Advanced Settings'), {
-            'fields': ['slug', 'publication_date'],
+            'fields': ['slug', 'publication_date', 'external_link'],
             'classes': ('collapse',),
         }),
     ]

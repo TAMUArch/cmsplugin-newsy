@@ -26,6 +26,10 @@ try:
 except ImportError:
     pass
 
+validate_link = RegexValidator(r'^(http|https)://',
+    u"Enter a valid link beginning with http:// or https://",
+    'invalid')
+
 class TagField(BaseTagField):
     def __init__(self, *args, **kwargs):
         kwargs.setdefault('max_length', 4096)
@@ -60,7 +64,7 @@ class NewsItem(models.Model):
     sites = models.ManyToManyField(Site)
     placeholders = models.ManyToManyField(Placeholder, editable=False)
     external_link = models.CharField(max_length=255, blank=True, null=True,
-                                     validators=[RegexValidator(r'^(http|https)://')],
+                                     validators=[validate_link],
                                      help_text=_('Use to link to an external article'))
     tags = TagField()
     

@@ -32,3 +32,7 @@ class NewsItemForm(NewsItemAddForm):
         widget=forms.CheckboxSelectMultiple())
     class Meta(NewsItemAddForm.Meta):
         exclude = []
+        widgets = {
+            'external_link': forms.TextInput(attrs={'placeholder':
+                'http://'})
+        }

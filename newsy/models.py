@@ -59,8 +59,9 @@ class NewsItem(models.Model):
     published = models.BooleanField(_('published'), default=False, db_index=True)
     sites = models.ManyToManyField(Site)
     placeholders = models.ManyToManyField(Placeholder, editable=False)
-    external_ling = models.CharField(max_length=255, blank=True, null=True,
-                                     validators=[RegexValidator(r'^(http|https)://')])
+    external_link = models.CharField(max_length=255, blank=True, null=True,
+                                     validators=[RegexValidator(r'^(http|https)://')],
+                                     help_text=_('Use to link to an external article'))
     tags = TagField()
     
     moderator_state = 0

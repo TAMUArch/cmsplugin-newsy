@@ -100,8 +100,8 @@ def unpublished_item_view(request, slug):
     except NewsItem.DoesNotExist:
         raise Http404()
     except NewsItem.MultipleObjectsReturned:
-        raise HttpResponseServerError(u'Multiple unpublished items found with '
-                                      'the slug: %s' % (slug,))
+        return HttpResponseServerError(u'Multiple unpublished items found with '
+                                       'the slug: %s' % (slug,))
     
     if not page.has_change_permission(request):
         raise Http404()

@@ -6,7 +6,7 @@ from django.core.urlresolvers import reverse
 
 from tagging.models import TaggedItem, Tag
 
-from newsy.models import NewsItem
+from newsy.models import NewsItem, NewsItemThumbnail
 
 
 _current_site = Site.objects.get_current
@@ -62,3 +62,9 @@ class RssNewsItemFeed(Feed):
     def item_categories(self, item):
         return map(lambda t: t.name,
                    Tag.objects.get_for_object(item))
+    
+    def item_enclosure_url(self, item):
+        if item.thumbnail:
+            return 'http://one.arch.tamu.edu%s' % (item.thumbnail.image.url,)
+        else:
+            return ''

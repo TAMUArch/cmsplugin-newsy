@@ -2,7 +2,7 @@ from django.conf import settings
 from django.conf.urls.defaults import url, patterns
 
 from newsy.models import NewsItem
-from newsy.feeds import RssNewsItemFeed
+from newsy.feeds import RssNewsItemFeed, RssCascadeNewsFeed
 
 
 
@@ -24,4 +24,7 @@ urlpatterns = patterns('newsy.views',
     url(r'^rss/', RssNewsItemFeed(), name='newsy-rss-feed'),
     url(r'^tag/(?P<tag>[\d\w\- &]{1,64})/rss/$', RssNewsItemFeed(),
         name='newsy-rss-tag-feed'),
+    url(r'^cascade/rss/', RssCascadeNewsFeed(), name='cascade-rss-feed'),
+    url(r'^tag/(?P<tag>[\d\w\- &]{1,64})/cascade/rss/$', RssCascadeNewsFeed(),
+        name='cascade-rss-tag-feed'),
 )

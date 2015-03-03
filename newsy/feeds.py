@@ -63,6 +63,7 @@ class RssNewsItemFeed(Feed):
         return map(lambda t: t.name,
                    Tag.objects.get_for_object(item))
     
+class RssCascadeNewsFeed(RssNewsItemFeed):
     def item_enclosure_url(self, item):
         if item.thumbnail:
             return 'http://one.arch.tamu.edu%s' % (item.thumbnail.image.url,)

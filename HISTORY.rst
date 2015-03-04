@@ -1,3 +1,8 @@
+1.0 (2015/03/04)
+----------------
+
+* added carousel and thumbnail to cascade rss
+
 0.9 (2015/03/03)
 ----------------
 

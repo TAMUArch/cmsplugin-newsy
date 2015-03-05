@@ -66,12 +66,19 @@ class RssNewsItemFeed(Feed):
 class RssCascadeNewsFeed(RssNewsItemFeed):
     feed_type = CustomFeedGenerator
 
+    def items(self, obj):
+        qs = NewsItem.site_objects.filter(published=True)
+
+        if obj:
+            return TaggedItem.objects.get_by_model(qs, [obj])[:25]
+        return qs[:25]
+
     def item_extra_kwargs(self, obj):
         thumbnail = ''
         carousel = ''
 
         if obj.thumbnail:
-            carousel = 'http://one.arch.tamu.edu%s' % (obj.thumbnail.image.url,)
+            carousel = 'http://one.arch.tamu.edu%s' % (unicode(obj.thumbnail.get_news_banner_url()),)
             thumbnail = 'http://one.arch.tamu.edu%s' % (unicode(obj.thumbnail.get_thumbnail_medium_url()),)
 
         return {'thumbnail': thumbnail, 'carousel': carousel}

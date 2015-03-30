@@ -73,6 +73,9 @@ class RssCascadeNewsFeed(RssNewsItemFeed):
             return TaggedItem.objects.get_by_model(qs, [obj])[:25]
         return qs[:25]
 
+    def item_title(self, item):
+        return item.get_short_title()
+
     def item_extra_kwargs(self, obj):
         thumbnail = ''
         carousel = ''
